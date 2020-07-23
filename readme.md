@@ -8,7 +8,7 @@ This simple and straight-forward command-line tool shows all the available versi
 
 By default, it shows some informational text at the beginning, and stops the execution until you press any key:
 
-![The results of running the program in my system](dotnetversions.png)
+![The results of running the program in my system](doc/dotnetversions.png)
 
 This is useful for informational purposes, but if for any reason you need to run it in a batch file and get just the versions without stopping execution, you can use the `/b`, `-b` or `--b` switch :
 
