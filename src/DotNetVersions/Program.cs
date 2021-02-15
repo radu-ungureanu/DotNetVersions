@@ -1,5 +1,6 @@
-﻿using System;
+﻿using DotNetVersions.Helpers;
 using Microsoft.Win32;
+using System;
 
 namespace DotNetVersions
 {
@@ -7,32 +8,22 @@ namespace DotNetVersions
     {
         static void Main(string[] args)
         {
-            bool batchMode = false;
-
-            if (args.Length > 0 && (args[0] == "/help" || args[0] == "-help" || args[0] == "--help" || args[0] == "/?" || args[0] == "-?" || args[0] == "--?"))
+            if (ArgumentHelpers.IsHelpArgument(args))
             {
-                Console.Write("Writes all the currently installed versions of \"classic\" .NET platform in the system.\r\nUse --b, -b or /b to use in a batch, showing only the installed versions, without any extra informational lines.");
-            }
-            else
-            {
-                if (args.Length > 0 && (args[0] == "/b" || args[0] == "-b" || args[0] == "--b"))
-                {
-                    batchMode = true;
-                }
-
-                if (!batchMode)
-                    Console.WriteLine("Currently installed \"classic\" .NET Versions in the system:");
-
-                //Show all the installed versions
-                Get1To45VersionFromRegistry();
-                Get45PlusFromRegistry();
+                Console.WriteLine("Writes all the currently installed versions of \"classic\" .NET platform in the system.");
+                Console.WriteLine("Use --b, -b or /b to use in a batch, showing only the installed versions, without any extra informational lines.");
+                return;
             }
 
-            if (!batchMode)
-                Console.ReadKey();
+            if (!ArgumentHelpers.IsBatchArgument(args))
+            {
+                Console.WriteLine("Currently installed \"classic\" .NET Versions in the system:");
+            }
+
+            Get1To45VersionFromRegistry();
+            Get45PlusFromRegistry();
         }
 
-        //Writes the version
         private static void WriteVersion(string version, string spLevel = "")
         {
             version = version.Trim();
