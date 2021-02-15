@@ -1,11 +1,17 @@
 ﻿using DotNetVersions.Helpers;
+using DotNetVersions.Models;
 using Microsoft.Win32;
 using System;
+using System.Linq;
 
 namespace DotNetVersions
 {
     class Program
     {
+        const string DotnetFrameworkRegistryKey = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\";
+        const string DotnetFramework45Key = "v4";
+        readonly static string DotnetFramework45RegistryKey = @$"{DotnetFrameworkRegistryKey}{DotnetFramework45Key}\Full\";
+
         static void Main(string[] args)
         {
             if (ArgumentHelpers.IsHelpArgument(args))
@@ -24,134 +30,100 @@ namespace DotNetVersions
             Get45PlusFromRegistry();
         }
 
-        private static void WriteVersion(string version, string spLevel = "")
+        private static void Get1To45VersionFromRegistry()
+        {
+            using var ndpKey = Registry.LocalMachine.OpenSubKey(DotnetFrameworkRegistryKey);
+            var versionKeyNames = ndpKey
+                .GetSubKeyNames()
+                .Where(versionKeyName => versionKeyName.StartsWith("v"))
+                .Where(versionKeyName => versionKeyName != DotnetFramework45Key)
+                .ToList();
+
+            foreach (var versionKeyName in versionKeyNames)
+            {
+                using var versionKey = ndpKey.OpenSubKey(versionKeyName);
+                var registryInfo = DotnetRegistry.FromRegistryKey(versionKey);
+
+                Write(registryInfo);
+
+                if (!string.IsNullOrEmpty(registryInfo.Name))
+                {
+                    continue;
+                }
+
+                foreach (var subVersionKeyName in versionKey.GetSubKeyNames())
+                {
+                    using var subVersionKey = versionKey.OpenSubKey(subVersionKeyName);
+                    var subRegistryInfo = DotnetRegistry.FromRegistryKeyAsChild(subVersionKey);
+                    Write(subRegistryInfo);
+                }
+            }
+        }
+
+        private static void Get45PlusFromRegistry()
+        {
+            using var ndpKey = Registry.LocalMachine.OpenSubKey(DotnetFramework45RegistryKey);
+            if (ndpKey == null)
+                return;
+
+            var version = ndpKey.GetValue("Version", "").ToString();
+            var releaseValue = (int?)ndpKey.GetValue("Release");
+
+            if (!string.IsNullOrEmpty(version))
+            {
+                Write(version);
+                return;
+            }
+
+            if (!releaseValue.HasValue)
+                return;
+
+            var dotnetFrameworkReleaseInfo = GetDotnetFrameworkReleaseInfo(releaseValue.Value);
+            if (dotnetFrameworkReleaseInfo == null)
+                return;
+
+            Write(dotnetFrameworkReleaseInfo.DotnetFrameworkVersion);
+        }
+
+        private static DotnetFramework45ReleaseInfo GetDotnetFrameworkReleaseInfo(int releaseValue)
+        {
+            return DotnetFramework45ReleaseInfo
+                .GetKnownVersions()
+                .OrderByDescending(release => release.MinimumReleaseValue)
+                .FirstOrDefault(release => releaseValue >= release.MinimumReleaseValue);
+        }
+
+        private static void Write(DotnetRegistry registryInfo)
+        {
+            if (string.IsNullOrEmpty(registryInfo.InstallFlag))
+            {
+                Write(registryInfo.Name);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(registryInfo.ServicePack) && registryInfo.InstallFlag == "1")
+            {
+                Write(registryInfo.Name, registryInfo.ServicePack);
+                return;
+            }
+
+            if (registryInfo.IsChild && registryInfo.InstallFlag == "1")
+            {
+                Write(registryInfo.Name);
+            }
+        }
+
+        private static void Write(string version, string spLevel = "")
         {
             version = version.Trim();
+
             if (string.IsNullOrEmpty(version))
                 return;
 
-            string spLevelString = "";
             if (!string.IsNullOrEmpty(spLevel))
-                spLevelString = " Service Pack " + spLevel;
+                spLevel = $" Service Pack {spLevel}";
 
-            Console.WriteLine($"{version}{spLevelString}");
-        }
-        private static void Get1To45VersionFromRegistry()
-        {
-            // Opens the registry key for the .NET Framework entry.
-            using (RegistryKey ndpKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP\"))
-            {
-                foreach (string versionKeyName in ndpKey.GetSubKeyNames())
-                {
-                    // Skip .NET Framework 4.5 version information.
-                    if (versionKeyName == "v4")
-                    {
-                        continue;
-                    }
-
-                    if (versionKeyName.StartsWith("v"))
-                    {
-
-                        RegistryKey versionKey = ndpKey.OpenSubKey(versionKeyName);
-                        // Get the .NET Framework version value.
-                        string name = (string)versionKey.GetValue("Version", "");
-                        // Get the service pack (SP) number.
-                        string sp = versionKey.GetValue("SP", "").ToString();
-
-                        // Get the installation flag, or an empty string if there is none.
-                        string install = versionKey.GetValue("Install", "").ToString();
-                        if (string.IsNullOrEmpty(install)) // No install info; it must be in a child subkey.
-                            WriteVersion(name);
-                        else
-                        {
-                            if (!(string.IsNullOrEmpty(sp)) && install == "1")
-                            {
-                                WriteVersion(name, sp);
-                            }
-                        }
-                        if (!string.IsNullOrEmpty(name))
-                        {
-                            continue;
-                        }
-                        foreach (string subKeyName in versionKey.GetSubKeyNames())
-                        {
-                            RegistryKey subKey = versionKey.OpenSubKey(subKeyName);
-                            name = (string)subKey.GetValue("Version", "");
-                            if (!string.IsNullOrEmpty(name))
-                                sp = subKey.GetValue("SP", "").ToString();
-
-                            install = subKey.GetValue("Install", "").ToString();
-                            if (string.IsNullOrEmpty(install)) //No install info; it must be later.
-                                WriteVersion(name);
-                            else
-                            {
-                                if (!(string.IsNullOrEmpty(sp)) && install == "1")
-                                {
-                                    WriteVersion(name, sp);
-                                }
-                                else if (install == "1")
-                                {
-                                    WriteVersion(name);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        private static void Get45PlusFromRegistry()
-        {
-            const string subkey = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\";
-
-            using (RegistryKey ndpKey = Registry.LocalMachine.OpenSubKey(subkey))
-            {
-                if (ndpKey == null)
-                    return;
-                //First check if there's an specific version indicated
-                if (ndpKey.GetValue("Version") != null)
-                {
-                    WriteVersion(ndpKey.GetValue("Version").ToString());
-                }
-                else
-                {
-                    if (ndpKey != null && ndpKey.GetValue("Release") != null)
-                    {
-                        WriteVersion(
-                            CheckFor45PlusVersion(
-                                    (int)ndpKey.GetValue("Release")
-                                )
-                        );
-                    }
-                }
-            }
-
-            // Checking the version using >= enables forward compatibility.
-            string CheckFor45PlusVersion(int releaseKey)
-            {
-                if (releaseKey >= 528040)
-                    return "4.8";
-                if (releaseKey >= 461808)
-                    return "4.7.2";
-                if (releaseKey >= 461308)
-                    return "4.7.1";
-                if (releaseKey >= 460798)
-                    return "4.7";
-                if (releaseKey >= 394802)
-                    return "4.6.2";
-                if (releaseKey >= 394254)
-                    return "4.6.1";
-                if (releaseKey >= 393295)
-                    return "4.6";
-                if (releaseKey >= 379893)
-                    return "4.5.2";
-                if (releaseKey >= 378675)
-                    return "4.5.1";
-                if (releaseKey >= 378389)
-                    return "4.5";
-                // This code should never execute. A non-null release key should mean
-                // that 4.5 or later is installed.
-                return "";
-            }
+            Console.WriteLine($"{version}{spLevel}");
         }
     }
 }
