@@ -1,16 +1,15 @@
-# DotNetVersions
+DotNetVersions
+===
 
-There's no simple built in way to see the currently installed versions of the "classic" .NET platform in a system. The only way is to [go to the system's registry and search and analyze some keys and values](https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed).
+There's no simple built in way to see the currently installed versions of the "classic" .NET platform in a system. The only way is to go to the system's registry and search and analyze some keys and values, as described in the [documentation](https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed).
 
 This simple and straight-forward command-line tool shows all the available versions in your system.
 
->**Note**: I've used .NET 2.0 for this tool, the minimum version I had access to, so that it can really work in any system, even the oldest ones, and being able to return all the versions available anyway.
-
-By default, it shows some informational text at the beginning, and stops the execution until you press any key:
+When running the tool, by default, it shows some informational text at the beginning:
 
 ![The results of running the program in my system](doc/dotnetversions.png)
 
-This is useful for informational purposes, but if for any reason you need to run it in a batch file and get just the versions without stopping execution, you can use the `/b`, `-b` or `--b` switch :
+This is useful for informational purposes, but if for any reason you need to run it in a batch file and you want to get just the versions without any additional text, you can use any of the following arguments: `/b`, `-b` or `--b`
 
 ```bash
 dotnetversions -b
